@@ -1,0 +1,18 @@
+# secrets
+.env
+
+# python
+__pycache__/
+*.pyc
+.venv/
+
+# next / frontend
+.next/
+node_modules/
+
+# runtime data
+redis-data/
+
+# OS junk
+.DS_Store
+Thumbs.db
