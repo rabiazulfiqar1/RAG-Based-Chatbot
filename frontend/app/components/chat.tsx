@@ -98,8 +98,13 @@ const Chat = () => {
   }, [authReady])
 
   const loadMessages = async (sessionId: string) => {
+    const { data: { session } } = await supabase.auth.getSession()
     try {
-      const response = await fetch(`${API_URL}/api/messages/${sessionId}?limit=50`)
+      const response = await fetch(`${API_URL}/api/messages/${sessionId}?limit=50`, {
+                headers: {
+          Authorization: `Bearer ${session?.access_token}`,
+        },
+      })
       if (response.ok) {
         const messageHistory = await response.json()
         setMessages(messageHistory)
