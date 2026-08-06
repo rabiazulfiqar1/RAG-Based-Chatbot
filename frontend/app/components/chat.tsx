@@ -97,7 +97,7 @@ const Chat = () => {
     initializeSession()
   }, [authReady])
 
-  const loadMessages = async (sessionId: string) => {
+  async function loadMessages(sessionId: string) {
     const { data: { session } } = await supabase.auth.getSession()
     try {
       const response = await fetch(`${API_URL}/api/messages/${sessionId}?limit=50`, {
@@ -118,7 +118,7 @@ const Chat = () => {
     }
   }
 
-  const loadDocuments = async (sessionId: string) => {
+  async function loadDocuments(sessionId: string) {
     const { data: { session } } = await supabase.auth.getSession()
     
     try {
