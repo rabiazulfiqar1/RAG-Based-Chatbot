@@ -1,39 +1,36 @@
 """
 Centralized connection management for database, Redis, LLM, and vector store.
 """
-
 import os
 import redis
 from dotenv import load_dotenv
-from psycopg_pool import ConnectionPool
-from langchain_huggingface import HuggingFaceEmbeddings
+from psycopg_pool import AsyncConnectionPool  
 from langchain_postgres import PGVector
 from langchain_groq import ChatGroq
-from redisvl.extensions.cache.llm import SemanticCache
-from redisvl.utils.vectorize import HFTextVectorizer
-
 from app.core.constants import MAX_RETRIES
+import traceback
+from langchain_nvidia_ai_endpoints import NVIDIAEmbeddings
 
 load_dotenv()
 
-# Database Connection Pool
-pool = ConnectionPool(
-    os.getenv("SUPABASE_DB_URL"),
+pool = AsyncConnectionPool(
+    os.getenv("SUPABASE_DB_POOL_URL"),
     max_size=20,
-    min_size=1
+    min_size=1,
+    open=False, 
 )
 
 # Redis Connection
 redis_client = None
 try:
-    redis_client = redis.from_url(
+    redis_client = redis.Redis.from_url(
         os.getenv("REDIS_URL"),
         decode_responses=True
     )
     redis_client.ping()
-    print("✅ Redis connected successfully")
+    print("Redis connected successfully")
 except Exception as e:
-    print(f"❌ Redis connection failed: {e}")
+    print(f"Redis connection failed: {e}")
     redis_client = None
 
 # LLM Model
@@ -46,35 +43,23 @@ llm = ChatGroq(
     streaming=True
 )
 
-# Embeddings Model
-embeddings = HuggingFaceEmbeddings(
-    model_name="sentence-transformers/all-mpnet-base-v2",
-    model_kwargs={'device': 'cpu'},
-    encode_kwargs={'normalize_embeddings': True}
+# Embeddings Model — NVIDIA NIM hosted endpoint 
+embeddings = NVIDIAEmbeddings(
+    model="nvidia/nv-embedqa-e5-v5",
+    api_key=os.getenv("NVIDIA_API_KEY"),
+    truncate="END",
 )
 
-# Semantic Cache
-llmcache = None
-if redis_client:
-    try:
-        llmcache = SemanticCache(
-            name="chat_semantic_cache",
-            redis_url=os.getenv("REDIS_URL"),
-            distance_threshold=0.2,
-            ttl=3600 * 24 * 60,
-            vectorizer=HFTextVectorizer(
-                model="sentence-transformers/all-mpnet-base-v2"
-            )
-        )
-        print("✅ RedisVL SemanticCache initialized")
-    except Exception as e:
-        print(f"❌ SemanticCache initialization failed: {e}")
-        llmcache = None
+nvidia_embeddings = NVIDIAEmbeddings(
+    model="nvidia/nv-embedqa-e5-v5",
+    api_key=os.getenv("NVIDIA_API_KEY"),
+    truncate="END",
+)
 
 # Document Vector Store
 document_vector_store = PGVector(
     embeddings=embeddings,
     collection_name="user_documents",
-    connection=os.getenv("SUPABASE_DB_URL"),
+    connection=os.getenv("SUPABASE_DB_SQLALCHEMY_URL"),
     use_jsonb=True,
 )

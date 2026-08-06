@@ -114,53 +114,41 @@ def chunk_and_embed_document(
     return len(chunks)
 
 
-def save_document_metadata(
-    document_id: str,
-    session_id: str,
-    user_id: str,
-    filename: str,
-    file_type: str,
-    file_size: int,
-    chunk_count: int,
-    file_hash: str = None,
-    url: str = None
+async def save_document_metadata(
+    document_id: str, session_id: str, user_id: str, filename: str,
+    file_type: str, file_size: int, chunk_count: int,
+    file_hash: str = None, url: str = None
 ):
-    """Save document metadata to database"""
-    conn = pool.getconn()
-    try:
-        with conn.cursor() as cur:
-            cur.execute("""
-                INSERT INTO user_documents
-                (document_id, session_id, user_id, filename, file_type, file_size,
-                 chunk_count, file_hash, url, created_at, is_active)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                ON CONFLICT (document_id) DO UPDATE SET
-                    updated_at = CURRENT_TIMESTAMP
-            """, (
-                document_id, session_id, user_id, filename, file_type,
-                file_size, chunk_count, file_hash, url, datetime.now(), True
-            ))
-        conn.commit()
-    except Exception as e:
-        conn.rollback()
-        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
-    finally:
-        pool.putconn(conn)
+    async with pool.connection() as conn:
+        try:
+            async with conn.cursor() as cur:
+                await cur.execute("""
+                    INSERT INTO user_documents
+                    (document_id, session_id, user_id, filename, file_type, file_size,
+                     chunk_count, file_hash, url, created_at, is_active)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (document_id) DO UPDATE SET
+                        updated_at = CURRENT_TIMESTAMP
+                """, (
+                    document_id, session_id, user_id, filename, file_type,
+                    file_size, chunk_count, file_hash, url, datetime.now(), True
+                ))
+            await conn.commit()
+        except Exception as e:
+            await conn.rollback()
+            raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
-def get_session_document_count(session_id: str, user_id: str) -> int:
-    """Get count of active documents for a session"""
-    conn = pool.getconn()
-    try:
-        with conn.cursor() as cur:
-            cur.execute("""
-                SELECT COUNT(*) 
-                FROM user_documents 
-                WHERE session_id = %s AND user_id = %s AND is_active = true
-            """, (session_id, user_id))
-            count = cur.fetchone()[0]
-            return count
-    except Exception as e:
-        print(f"Error getting document count: {e}")
-        return 0
-    finally:
-        pool.putconn(conn)
+
+async def get_session_document_count(session_id: str, user_id: str) -> int:
+    async with pool.connection() as conn:
+        try:
+            async with conn.cursor() as cur:
+                await cur.execute("""
+                    SELECT COUNT(*) FROM user_documents
+                    WHERE session_id = %s AND user_id = %s AND is_active = true
+                """, (session_id, user_id))
+                row = await cur.fetchone()
+                return row[0]
+        except Exception as e:
+            print(f"Error getting document count: {e}")
+            return 0

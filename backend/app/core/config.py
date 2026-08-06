@@ -1,13 +1,14 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
-    OPENAI_API_KEY: str = ""
     SUPABASE_URL: str = ""
     SUPABASE_DB_URL: str = ""
     SUPABASE_SERVICE_ROLE_KEY: str = ""
     GROQ_API_KEY: str = ""
+    NVIDIA_API_KEY: str = ""
+    SUPABASE_DB_SQLALCHEMY_URL: str = ""
+    SUPABASE_DB_POOL_URL: str = ""
 
-    MONGO_URI: str
     REDIS_URL: str
 
     # This is the modern syntax for Pydantic V2

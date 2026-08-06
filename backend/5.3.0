@@ -1,6 +1,0 @@
-Collecting redis
-  Using cached redis-7.1.0-py3-none-any.whl.metadata (12 kB)
-Requirement already satisfied: async-timeout>=4.0.3 in c:\users\rzulf\miniconda3\envs\rag-genai\lib\site-packages (from redis) (4.0.3)
-Using cached redis-7.1.0-py3-none-any.whl (354 kB)
-Installing collected packages: redis
-Successfully installed redis-7.1.0

@@ -20,7 +20,6 @@ from app.utils.cache_service import (
 from app.utils.database_service import get_raw_message_history
 
 
-# Chat Prompt Template
 chat_prompt = ChatPromptTemplate.from_messages([
     (
         "system",
@@ -44,43 +43,43 @@ chat_prompt = ChatPromptTemplate.from_messages([
 chat_chain = chat_prompt | llm | StrOutputParser()
 
 
-def get_conversation_context(session_id: str, K=5, SUMMARY_BATCH_SIZE=5):
+async def get_conversation_context(session_id: str, K=5, SUMMARY_BATCH_SIZE=5):
     """
     Hierarchical summarization approach
-    
+
     Logic:
     - Keep last K messages as raw
     - When total messages > K, maintain running summary
     - Only update summary every SUMMARY_BATCH_SIZE new messages
     - Always preserve previous summary context
-    
+
     Optimized context retrieval:
     - Cache holds K + SUMMARY_BATCH_SIZE (10 total) messages
     - Use cached messages for both context and summarization
     - Minimal DB calls
     """
-    
-    # Get cached messages (up to 10: 5 recent + 5 summary batch)
+
+    # Get cached messages (up to 10: 5 recent + 5 summary batch) — Redis, stays sync
     history_messages = get_cached_recent_messages(session_id, K=(K + SUMMARY_BATCH_SIZE))
     if not history_messages:
-        # Cache miss - fallback to DB
-        history_messages = get_raw_message_history(session_id, limit=(K + SUMMARY_BATCH_SIZE))
-    
+        # Cache miss - fallback to DB (now async)
+        history_messages = await get_raw_message_history(session_id, limit=(K + SUMMARY_BATCH_SIZE))
+
     # If we have fewer than K messages, just return all raw
     if len(history_messages) <= K:
         return history_messages
-    
-    # Get existing summary state
-    summary_state = get_summary_state(session_id)
-    
+
+    # Get existing summary state (now async)
+    summary_state = await get_summary_state(session_id)
+
     # Return context: [summary] + [last K raw messages]
     context = []
     if summary_state.get('previous_summary'):
         context.append(SystemMessage(content=f"Conversation summary: {summary_state['previous_summary']}"))
-    
+
     # Add last K raw messages
     context.extend(history_messages[-K:])
-    
+
     return context
 
 
@@ -101,7 +100,7 @@ async def perform_background_summarization(
     # If total messages in cache <= K, nothing to summarize
     total_messages = len(cached_messages)
     if total_messages <= K:
-        print("⏸️ Not enough messages, all are recent K messages")
+        print("Not enough messages, all are recent K messages")
         return
 
     # How many messages are eligible to summarize (older than K)
@@ -109,7 +108,7 @@ async def perform_background_summarization(
 
     # Only summarize if we have a full batch
     if messages_eligible_for_summary < SUMMARY_BATCH_SIZE:
-        print(f"⏸️ Not enough messages to summarize yet: {messages_eligible_for_summary} < {SUMMARY_BATCH_SIZE}")
+        print(f"Not enough messages to summarize yet: {messages_eligible_for_summary} < {SUMMARY_BATCH_SIZE}")
         return
 
     # Slice exactly SUMMARY_BATCH_SIZE messages from oldest eligible
@@ -119,8 +118,8 @@ async def perform_background_summarization(
 
     print(f"📝 Summarizing {len(messages_to_summarize)} messages from cache for session {session_id}")
 
-    # Get previous summary state
-    summary_state = get_summary_state(session_id)
+    # Get previous summary state (now async)
+    summary_state = await get_summary_state(session_id)
     previous_summary = summary_state.get('previous_summary', '')
 
     # Build summary prompt
@@ -147,9 +146,9 @@ async def perform_background_summarization(
         'summarized_count': summary_state.get('summarized_count', 0) + len(messages_to_summarize),
         'last_updated': datetime.now()
     }
-    cache_summary_state(session_id, new_summary_state)
+    await cache_summary_state(session_id, new_summary_state) 
 
-    # Update cache: remove summarized messages, keep recent K
+    # Update cache: remove summarized messages, keep recent K — Redis, stays sync
     if redis_client:
         redis_key = f"chat:recent_msgs:{session_id}"
         try:
@@ -159,7 +158,7 @@ async def perform_background_summarization(
         except Exception as e:
             print(f"Error trimming cache: {e}")
 
-    print(f"✅ Background summarization completed for session {session_id}")
+    print(f"Background summarization completed for session {session_id}")
 
 
 async def stream_llm_response(
@@ -175,10 +174,10 @@ async def stream_llm_response(
             if chunk:
                 # Send token with SSE format
                 yield f"data: {json.dumps({'token': chunk})}\n\n"
-                
+
         # Send completion signal
         yield f"data: {json.dumps({'done': True})}\n\n"
-        
+
     except Exception as e:
         error_msg = f"Error during streaming: {str(e)}"
         yield f"data: {json.dumps({'error': error_msg})}\n\n"
