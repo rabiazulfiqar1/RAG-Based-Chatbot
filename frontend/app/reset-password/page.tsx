@@ -14,7 +14,7 @@ export default function ResetPasswordPage() {
 
   useEffect(() => {
     // Check if user came from reset email link
-    supabase.auth.onAuthStateChange(async (event, session) => {
+    supabase.auth.onAuthStateChange(async (event) => {
       if (event === "PASSWORD_RECOVERY") {
         // User is authenticated via the recovery link
         console.log("Password recovery mode activated");

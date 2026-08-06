@@ -117,7 +117,7 @@ export function LoginModal({
           // Forgot Password Form
           <form onSubmit={handleForgotPassword} className="space-y-4">
             <p className="text-sm text-gray-600 mb-4">
-              Enter your email address and we'll send you a link to reset your password.
+              Enter your email address and we&apos;ll send you a link to reset your password.
             </p>
 
             <div>
@@ -259,7 +259,7 @@ export function LoginModal({
           </button>
 
           <div className="text-center text-sm text-gray-600 mt-6">
-            Don't have an account?{" "}
+            Don&apos;t have an account?{" "}
             <button
               type="button"
               onClick={() => {

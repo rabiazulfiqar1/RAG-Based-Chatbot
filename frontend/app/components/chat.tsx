@@ -55,7 +55,7 @@ const Chat = () => {
 
   // Wait for Supabase auth to initialize
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
       setAuthReady(true)
     })
 

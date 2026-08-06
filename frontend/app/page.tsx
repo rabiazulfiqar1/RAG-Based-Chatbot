@@ -1,5 +1,4 @@
 "use client";
-import Image from "next/image";
 import { useEffect, useState } from "react";
 import { useNavigation } from "@/app/components/navigation";
 import { LoginModal } from "./components/login-modal";
